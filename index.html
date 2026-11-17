@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#18231f">
+  <meta name="description" content="Anotador de pedidos con búsqueda aproximada del menú de Cofi Jaus.">
+  <title>Anotador · Cofi Jaus</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #18231f;
+      --muted: #68736d;
+      --paper: #f5f4ef;
+      --card: #ffffff;
+      --line: #e5e8e2;
+      --green: #284c3b;
+      --green-soft: #eaf1eb;
+      --gold: #c28b4d;
+      --danger: #a34439;
+      --shadow: 0 8px 28px rgba(24,35,31,.06);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    .shell { width: min(760px, 100%); margin: 0 auto; padding: 22px 16px calc(34px + env(safe-area-inset-bottom)); }
+    header { margin: 3px 0 22px; }
+    .eyebrow { color: var(--gold); font-size: 11px; font-weight: 800; letter-spacing: .17em; text-transform: uppercase; }
+    h1 { margin: 7px 0 5px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(30px, 7vw, 42px); font-weight: 500; letter-spacing: -.04em; }
+    .sub { color: var(--muted); font-size: 14px; line-height: 1.45; margin: 0; }
+    .panel { background: var(--card); border: 1px solid var(--line); border-radius: 19px; box-shadow: var(--shadow); padding: 17px; }
+    .search-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 11px; }
+    .section-title { font-size: 13px; font-weight: 800; letter-spacing: .02em; }
+    .hint { color: var(--muted); font-size: 11px; }
+    .search-wrap { position: relative; }
+    .search-icon { position: absolute; top: 50%; left: 14px; transform: translateY(-50%); color: #7d8981; font-size: 19px; pointer-events: none; }
+    #searchInput {
+      display: block; width: 100%; min-height: 55px; border: 1.5px solid #dce2dc; border-radius: 13px;
+      background: #fbfcfa; padding: 0 48px 0 44px; color: var(--ink); font-size: 16px; outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    #searchInput:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(40,76,59,.1); }
+    #clearSearch { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border: 0; border-radius: 9px; background: transparent; color: #78847c; font-size: 20px; }
+    #clearSearch:hover { background: #eef2ee; }
+    .microcopy { margin: 9px 2px 0; color: var(--muted); font-size: 12px; }
+    .results { margin-top: 15px; display: grid; gap: 9px; }
+    .result { border: 1px solid var(--line); border-radius: 13px; padding: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #fff; }
+    .result.best { border-color: #b9cebd; background: #fbfdfb; }
+    .result-main { min-width: 0; }
+    .result-label { display: block; color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
+    .result-name { display: block; font-size: 15px; font-weight: 750; line-height: 1.3; overflow-wrap: anywhere; }
+    .result-category { color: var(--muted); font-size: 11px; margin-top: 4px; }
+    .result-actions { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+    .small-btn { border: 1px solid #dce4dd; border-radius: 9px; background: #fff; color: var(--green); font-size: 12px; font-weight: 750; padding: 9px 10px; white-space: nowrap; }
+    .small-btn.primary { background: var(--green); border-color: var(--green); color: #fff; }
+    .small-btn:active, .action-btn:active { transform: translateY(1px); }
+    .empty { text-align: center; color: var(--muted); font-size: 13px; padding: 19px 10px 7px; line-height: 1.5; }
+    .order-panel { margin-top: 15px; }
+    .order-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    .order-title { font-size: 17px; font-weight: 800; }
+    .count { color: var(--muted); font-size: 12px; margin-left: 5px; font-weight: 500; }
+    .clear-order { border: 0; background: transparent; color: var(--danger); font-size: 12px; font-weight: 700; padding: 7px 2px; }
+    .order-list { display: grid; gap: 8px; }
+    .order-item { background: #fafbf9; border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .order-name { font-size: 14px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+    .order-tools { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .icon-btn { width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); font-size: 17px; display: grid; place-items: center; }
+    .icon-btn.remove { color: var(--danger); }
+    .qty { min-width: 16px; text-align: center; font-size: 13px; font-weight: 800; }
+    .order-empty { color: var(--muted); font-size: 13px; padding: 7px 0 3px; }
+    .bottom-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 14px; }
+    .action-btn { min-height: 46px; border: 1px solid var(--green); border-radius: 11px; padding: 10px; font-size: 13px; font-weight: 800; }
+    .action-btn.copy { background: var(--green); color: #fff; }
+    .action-btn.clear { background: #fff; color: var(--green); }
+    .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translate(-50%, 14px); opacity: 0; pointer-events: none; background: #19251f; color: #fff; border-radius: 100px; padding: 11px 16px; font-size: 13px; font-weight: 700; box-shadow: 0 7px 24px rgba(0,0,0,.2); transition: .2s; z-index: 5; white-space: nowrap; }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    footer { text-align: center; color: #8b958e; font-size: 11px; margin-top: 17px; }
+    @media (max-width: 420px) {
+      .shell { padding: 18px 12px calc(28px + env(safe-area-inset-bottom)); }
+      .panel { padding: 14px; border-radius: 16px; }
+      .result { padding: 10px; }
+      .small-btn { padding: 9px 8px; }
+      .bottom-actions { grid-template-columns: 1fr; }
+      .hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div class="eyebrow">Cofi Jaus · Herramienta de salón</div>
+      <h1>Anotador de pedidos</h1>
+      <p class="sub">Escribí el producto como lo escuchaste. La búsqueda corrige errores y muestra el nombre del menú para copiarlo.</p>
+    </header>
+
+    <section class="panel" aria-label="Buscador de productos">
+      <div class="search-head">
+        <span class="section-title">BUSCAR EN EL MENÚ</span>
+        <span class="hint">No hace falta escribir perfecto</span>
+      </div>
+      <div class="search-wrap">
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input id="searchInput" type="search" placeholder="Ej.: limonada jengib, huev revuektos…" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button id="clearSearch" type="button" aria-label="Borrar búsqueda">×</button>
+      </div>
+      <p class="microcopy">También reconoce ingredientes y palabras incompletas.</p>
+      <div id="results" class="results" aria-live="polite">
+        <div class="empty">Empezá a escribir para encontrar un producto del menú.</div>
+      </div>
+    </section>
+
+    <section class="panel order-panel" aria-label="Anotador del pedido">
+      <div class="order-top">
+        <div><span class="order-title">Pedido anotado</span><span id="itemCount" class="count">0 productos</span></div>
+        <button id="clearOrder" class="clear-order" type="button">Vaciar</button>
+      </div>
+      <div id="orderList" class="order-list">
+        <div class="order-empty">Todavía no agregaste productos.</div>
+      </div>
+      <div class="bottom-actions">
+        <button id="copyOrder" class="action-btn copy" type="button">Copiar pedido completo</button>
+        <button id="copyNames" class="action-btn clear" type="button">Copiar solo nombres</button>
+      </div>
+    </section>
+    <footer>Menú cargado desde el PDF compartido · La lista se guarda en este dispositivo.</footer>
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+  // Nombres y términos de búsqueda basados en el menú compartido.
+  const MENU = [
+    {name:"Espresso",category:"Cafés clásicos",terms:"cafe expreso shot corto"},
+    {name:"Doble Espresso",category:"Cafés clásicos",terms:"doble cafe expreso dos shots"},
+    {name:"Lungo",category:"Cafés clásicos",terms:"cafe largo"},
+    {name:"Americano",category:"Cafés clásicos",terms:"cafe americano agua"},
+    {name:"Cortado",category:"Cafés clásicos",terms:"cafe cortado"},
+    {name:"Doble Espresso Cortado",category:"Cafés clásicos",terms:"doble cortado cafe"},
+    {name:"Flat White",category:"Cafés clásicos",terms:"flatwhite cafe con leche"},
+    {name:"Latte",category:"Cafés clásicos",terms:"cafe latte leche"},
+    {name:"Capuccino",category:"Cafés clásicos",terms:"capuchino cappuccino cafe"},
+    {name:"Latte Vainilla",category:"Cafés especiales",terms:"latte vainiya vainilla cafe"},
+    {name:"Mocha",category:"Cafés especiales",terms:"moca cafe chocolate"},
+    {name:"Toffee Latte",category:"Cafés especiales",terms:"tofi latte caramelo cafe"},
+    {name:"Chocolate Caliente",category:"Cafés especiales",terms:"chocolate caliente submarino"},
+    {name:"Leche Almendra",category:"Adicionales",terms:"leche de almendras bebida vegetal extra"},
+    {name:"Chemex",category:"Cafés filtrados",terms:"cafe filtrado metodo chemex"},
+    {name:"V60",category:"Cafés filtrados",terms:"cafe filtrado metodo v sesenta"},
+    {name:"Aeropress",category:"Cafés filtrados",terms:"aero press cafe filtrado"},
+    {name:"Origen seleccionado por nuestro tostador",category:"Cafés filtrados",terms:"origen cafe tostador filtrado metodo"},
+    {name:"Cofi Tonic",category:"Nuestros fríos",terms:"cofi tonic cafe tonica citrico doble espresso"},
+    {name:"Cold Brew",category:"Nuestros fríos",terms:"coldbru cafe frio macerado"},
+    {name:"Té negro",category:"Tés",terms:"te negro infusion"},
+    {name:"Té verde",category:"Tés",terms:"te verde infusion"},
+    {name:"Té blend",category:"Tés",terms:"te blend infusion rosa mosqueta lavanda"},
+    {name:"Té Chai",category:"Tés",terms:"chai te especiado jengibre cardamomo canela"},
+    {name:"Gaseosas",category:"Bebidas",terms:"gaseosa coca sprite bebida"},
+    {name:"Agua mineral",category:"Bebidas",terms:"agua sin gas mineral"},
+    {name:"Sunray Cofi",category:"Frozen",terms:"sunrei sunray frutos rojos durazno naranja frozen"},
+    {name:"Licuados",category:"Frozen",terms:"licuado banana frutilla batido"},
+    {name:"Licuado Proteico",category:"Frozen",terms:"licuado proteina proteico banana mani vainilla"},
+    {name:"Tropicana",category:"Frozen",terms:"tropicana jugo naranja leche coco anana mango"},
+    {name:"Limonada",category:"Jugos",terms:"limonada jengibre gengibre menta limon almibar limonada clasica"},
+    {name:"Limonada de coco",category:"Jugos",terms:"limonada coco leche coco menta rallado"},
+    {name:"Pomelada",category:"Jugos",terms:"pomelo limon jugo pomelada"},
+    {name:"Jugo exprimido",category:"Jugos",terms:"jugo exprimido naranja exprimido natural"},
+    {name:"Watermelon Sugar COFI",category:"Jugos",terms:"watermelon sandia cold brew soda"},
+    {name:"Cold Brew de verano",category:"Jugos",terms:"coldbru verano naranja durazno hibiscus"},
+    {name:"Gin Tonic",category:"Con alcohol",terms:"gin tonic trago"},
+    {name:"Vermut",category:"Con alcohol",terms:"vermu vermouth trago"},
+    {name:"Cerveza Grolsch",category:"Con alcohol",terms:"cerveza birra grolsh grolsch"},
+    {name:"Tostado lomito, cheddar, huevo",category:"Combos",terms:"tostado lomito cheddar huevo cafe jugo naranja desayuno"},
+    {name:"Tostadas en pan de campo o dos medialunas + café",category:"Combos",terms:"tostada pan campo medialunas cafe desayuno"},
+    {name:"Almuerzo",category:"Combos",terms:"plato principal bebida agua gaseosa limonada cafe cofi menu mediodia"},
+    {name:"Opción 01 – Yogurt + juguito + café",category:"Combos",terms:"opcion uno yogurt yogur juguito cafe desayuno"},
+    {name:"Opción 02 – Pancake + juguito + café",category:"Combos",terms:"opcion dos pancake panqueque juguito cafe desayuno"},
+    {name:"Combo 2 cafés + 2 bebidas frías + 1 clásico + 1 laminado + 1 team dulce",category:"Combos",terms:"dos cafe bebidas frias clasico laminado dulce mesa perfecta"},
+    {name:"Tostadas",category:"Clásicos",terms:"tostada mermelada queso crema queso danbo cherrys"},
+    {name:"Pancakes proteicos",category:"Clásicos",terms:"pancake panqueques avena banana proteina"},
+    {name:"Avocado toast Jaus",category:"Clásicos",terms:"avocado palta toast pan campo huevo poche oliva"},
+    {name:"Yogurt",category:"Clásicos",terms:"yogur yogurt granola frutas miel"},
+    {name:"Huevos revueltos",category:"Clásicos",terms:"huevo huevos revueltos revuelto pan tostado cherrys palta jamon panceta"},
+    {name:"Omelette COFI",category:"Clásicos",terms:"omelet omelette palta cebolla rucula tomate panceta queso ciboulette"},
+    {name:"Alfajor de limón",category:"Pastelería",terms:"alfajor limon crema manteca glaseado"},
+    {name:"Alfajor de almendras",category:"Pastelería",terms:"alfajor almendra dulce leche nueces"},
+    {name:"Alfajor Bombón",category:"Pastelería",terms:"alfajor bombon cacao chocolate dulce leche"},
+    {name:"Pepa de pistachos",category:"Pastelería",terms:"pepa pistacho pistachos"},
+    {name:"Cookie pistachos & choco blanco",category:"Pastelería",terms:"cookie galletita pistacho chocolate blanco choco"},
+    {name:"Cookie de chips de chocolate",category:"Pastelería",terms:"cookie galletita chips chocolate"},
+    {name:"Cookie de frutos rojos",category:"Pastelería",terms:"cookie galletita frutos rojos"},
+    {name:"Muffin de banana",category:"Pastelería",terms:"muffin banana nueces chips chocolate"},
+    {name:"Muffin de Naranja",category:"Pastelería",terms:"muffin naranja frutos rojos"},
+    {name:"Medialuna",category:"Laminados",terms:"medialuna medialunas croissant"},
+    {name:"Medialuna JyQ",category:"Laminados",terms:"medialuna jamon queso jyq"},
+    {name:"Mega chipá",category:"Laminados",terms:"mega chipa chipacito 110 gramos"},
+    {name:"Roll de canela",category:"Laminados",terms:"roll cinnamon canela"},
+    {name:"Fosforito relleno de JyQ",category:"Laminados",terms:"fosforito jamon queso jyq"},
+    {name:"Lengüita con pastelera",category:"Laminados",terms:"lenguita lengua pastelera"},
+    {name:"Vasca de banana y ddl",category:"Tortas",terms:"vasca banana dulce de leche ddl cheesecake"},
+    {name:"Torta Mousse de Frutilla",category:"Tortas",terms:"torta mousse frutilla fresa crema"},
+    {name:"Cítrica de Chocolate blanco",category:"Tortas",terms:"citrica citrica chocolate blanco coulis naranja"},
+    {name:"Pavlova",category:"Tortas",terms:"pavlova crema acida frutas estacion"},
+    {name:"Tostado cheddar, lomito, huevo",category:"Sándwiches",terms:"tostado cheddar lomito huevo sandwich"},
+    {name:"Tostado clásico JyQ - Pan de molde",category:"Sándwiches",terms:"tostado clasico jamon queso pan molde jyq las dinas"},
+    {name:"Sándwich Caprese",category:"Sándwiches",terms:"sandwich caprese mozzarella tomate albahaca pistacho pesto"},
+    {name:"Sándwich de Pollo / opcional Wrap",category:"Sándwiches",terms:"sandwich pollo wrap lechuga tomate palta pepinillos danbo queso crema marinado"},
+    {name:"Sándwich de chipá XL",category:"Sándwiches",terms:"sandwich chipa xl tapa asado cheddar cebolla encurtida barbacoa cofi pan hamburguesa"},
+    {name:"Sándwich de chipá",category:"Sándwiches",terms:"sandwich chipa lomito queso danbo tomate rucula"},
+    {name:"Caesar Salad",category:"Ensaladas",terms:"cesar caesar ensalada mix verdes aderezo croutons pollo"},
+    {name:"Jaus Salad",category:"Ensaladas",terms:"jaus salad ensalada verdes cherry huevo cabutia choclo palta semillas vinagreta zanahoria sesamo"},
+    {name:"Pollo grillado Salad",category:"Ensaladas",terms:"pollo grillado ensalada verdes cherrys palta cebolla pepinillos alioli"},
+    {name:"Brasil",category:"Orígenes de café",terms:"brasil cafe origen cerrado finca campos altos bourbon"},
+    {name:"Bolivia",category:"Orígenes de café",terms:"bolivia cafe origen sud yungas"},
+    {name:"Colombia Honey",category:"Orígenes de café",terms:"colombia honey cafe armenia quindio leona honey fermentado"},
+    {name:"Colombia Tolima",category:"Orígenes de café",terms:"colombia tolima cafe san antonio"},
+    {name:"Colombia Natural",category:"Orígenes de café",terms:"colombia natural cafe armenia quindio"},
+    {name:"Costa Rica",category:"Orígenes de café",terms:"costa rica cafe brunca"},
+    {name:"Ethiopia",category:"Orígenes de café",terms:"etiopia ethiopia cafe sidamo guji yirgacheffe"}
+  ];
+
+  const STOP = new Set(["de","del","la","las","el","los","y","o","un","una","con","en","a","por","para","al","opcional"]);
+  const normalize = value => String(value || "").toLocaleLowerCase("es")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/ñ/g,"n").replace(/[^a-z0-9]+/g," ").trim();
+  const tokens = value => normalize(value).split(/\s+/).filter(t => t && !STOP.has(t));
+
+  function editDistance(a,b) {
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    let prev = Array.from({length:b.length+1},(_,i)=>i);
+    for (let i=1;i<=a.length;i++) {
+      const cur=[i];
+      for (let j=1;j<=b.length;j++) {
+        cur[j]=Math.min(cur[j-1]+1,prev[j]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));
+        if (i>1 && j>1 && a[i-1]===b[j-2] && a[i-2]===b[j-1]) cur[j]=Math.min(cur[j],prev[j-2]+1);
+      }
+      prev=cur;
+    }
+    return prev[b.length];
+  }
+  function similarity(a,b) {
+    if (a===b) return 1;
+    if (!a || !b) return 0;
+    if (a.length>=3 && (a.startsWith(b) || b.startsWith(a))) return Math.min(.96, Math.min(a.length,b.length)/Math.max(a.length,b.length)+.12);
+    if (a.length>=4 && b.length>=4 && (a.includes(b)||b.includes(a))) return .88;
+    const max=Math.max(a.length,b.length);
+    const d=editDistance(a,b);
+    if (d > (max>=8?3:max>=5?2:1)) return 0;
+    return 1-d/max;
+  }
+  function scoreItem(item, queryTokens) {
+    const nameTokens=tokens(item.name);
+    const extraTokens=tokens(item.category+" "+item.terms);
+    let total=0, matched=0, titleHits=0;
+    for (const q of queryTokens) {
+      let titleBest=0, extraBest=0;
+      for (const t of nameTokens) titleBest=Math.max(titleBest,similarity(q,t));
+      for (const t of extraTokens) extraBest=Math.max(extraBest,similarity(q,t));
+      const best=Math.max(titleBest,extraBest*.91);
+      total+=best;
+      if (best>=.55) matched++;
+      if (titleBest>=.58) titleHits++;
+    }
+    let score=total/queryTokens.length;
+    score += (titleHits/queryTokens.length)*.10;
+    if (normalize(item.name).includes(normalize(queryTokens.join(" ")))) score+=.18;
+    return Math.min(1,score);
+  }
+  function findMatches(raw) {
+    const q=tokens(raw);
+    if (!q.length) return [];
+    return MENU.map(item=>({item,score:scoreItem(item,q)}))
+      .filter(x=>x.score>=.40)
+      .sort((a,b)=>b.score-a.score || a.item.name.localeCompare(b.item.name,"es"))
+      .slice(0,5);
+  }
+
+  const searchInput=document.getElementById("searchInput");
+  const results=document.getElementById("results");
+  const orderList=document.getElementById("orderList");
+  const itemCount=document.getElementById("itemCount");
+  const toast=document.getElementById("toast");
+  let order=[];
+  try { order=JSON.parse(localStorage.getItem("cofi-jaus-order")||"[]"); if(!Array.isArray(order)) order=[]; } catch { order=[]; }
+  let toastTimer;
+  function notify(message) {
+    toast.textContent=message; toast.classList.add("show");
+    clearTimeout(toastTimer); toastTimer=setTimeout(()=>toast.classList.remove("show"),1800);
+  }
+  async function copyText(value) {
+    try {
+      if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(value);
+      else {
+        const area=document.createElement("textarea"); area.value=value; area.style.position="fixed"; area.style.opacity="0"; document.body.appendChild(area); area.select();
+        const ok=document.execCommand("copy"); area.remove(); if(!ok) throw new Error("copy failed");
+      }
+      notify("Copiado: "+value);
+    } catch { notify("No se pudo copiar. Mantené presionado el nombre para copiarlo."); }
+  }
+  function addItem(name) {
+    const found=order.find(x=>x.name===name);
+    if(found) found.qty++;
+    else order.push({name,qty:1});
+    saveOrder(); renderOrder(); notify("Agregado: "+name);
+  }
+  function saveOrder() { try { localStorage.setItem("cofi-jaus-order",JSON.stringify(order)); } catch {} }
+  function renderResults() {
+    const raw=searchInput.value.trim();
+    if(!raw) { results.innerHTML='<div class="empty">Empezá a escribir para encontrar un producto del menú.</div>'; return; }
+    const found=findMatches(raw);
+    if(!found.length) { results.innerHTML='<div class="empty">No encontré una coincidencia clara.<br>Probá con menos palabras o con algún ingrediente.</div>'; return; }
+    results.innerHTML=found.map((x,i)=>`<article class="result ${i===0?'best':''}">
+      <div class="result-main">${i===0?'<span class="result-label">Mejor coincidencia</span>':''}<span class="result-name">${escapeHtml(x.item.name)}</span><div class="result-category">${escapeHtml(x.item.category)}</div></div>
+      <div class="result-actions"><button class="small-btn" data-copy="${encodeURIComponent(x.item.name)}" type="button">Copiar</button><button class="small-btn primary" data-add="${encodeURIComponent(x.item.name)}" type="button">＋</button></div>
+    </article>`).join("");
+  }
+  function escapeHtml(value) { return value.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+  function renderOrder() {
+    const total=order.reduce((sum,x)=>sum+x.qty,0);
+    itemCount.textContent=total+" "+(total===1?"producto":"productos");
+    if(!order.length) { orderList.innerHTML='<div class="order-empty">Todavía no agregaste productos.</div>'; return; }
+    orderList.innerHTML=order.map((x,i)=>`<div class="order-item"><div class="order-name">${escapeHtml(x.name)}${x.qty>1?' <span style="color:#758078;font-weight:600">× '+x.qty+'</span>':''}</div><div class="order-tools"><button class="icon-btn" data-minus="${i}" type="button" aria-label="Restar uno">−</button><span class="qty">${x.qty}</span><button class="icon-btn" data-plus="${i}" type="button" aria-label="Sumar uno">+</button><button class="small-btn" data-order-copy="${i}" type="button">Copiar</button><button class="icon-btn remove" data-remove="${i}" type="button" aria-label="Eliminar">×</button></div></div>`).join("");
+  }
+
+  searchInput.addEventListener("input",renderResults);
+  searchInput.addEventListener("keydown",event=>{
+    if(event.key==="Enter") { const first=findMatches(searchInput.value)[0]; if(first) addItem(first.item.name); }
+  });
+  document.getElementById("clearSearch").addEventListener("click",()=>{searchInput.value="";renderResults();searchInput.focus();});
+  results.addEventListener("click",event=>{
+    const copy=event.target.closest("[data-copy]");
+    const add=event.target.closest("[data-add]");
+    if(copy) copyText(decodeURIComponent(copy.dataset.copy));
+    if(add) addItem(decodeURIComponent(add.dataset.add));
+  });
+  orderList.addEventListener("click",event=>{
+    const plus=event.target.closest("[data-plus]"); const minus=event.target.closest("[data-minus]");
+    const remove=event.target.closest("[data-remove]"); const copy=event.target.closest("[data-order-copy]");
+    if(plus) order[Number(plus.dataset.plus)].qty++;
+    if(minus) { const x=order[Number(minus.dataset.minus)]; x.qty--; if(x.qty<=0) order=order.filter(y=>y!==x); }
+    if(remove) order.splice(Number(remove.dataset.remove),1);
+    if(copy) { const x=order[Number(copy.dataset.orderCopy)]; copyText(x.name); }
+    saveOrder(); renderOrder();
+  });
+  document.getElementById("clearOrder").addEventListener("click",()=>{order=[];saveOrder();renderOrder();notify("Pedido vacío");});
+  document.getElementById("copyOrder").addEventListener("click",()=>{
+    if(!order.length) return notify("No hay productos anotados");
+    copyText(order.map(x=>x.qty>1?x.name+" × "+x.qty:x.name).join("\n"));
+  });
+  document.getElementById("copyNames").addEventListener("click",()=>{
+    if(!order.length) return notify("No hay productos anotados");
+    copyText(order.map(x=>x.name).join("\n"));
+  });
+  renderOrder();
+</script>
+</body>
+</html>
